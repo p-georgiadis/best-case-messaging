@@ -43,12 +43,14 @@ fun Application.module(jdbcUrl: String, username: String, password: String) {
             val purchase = call.receive<PurchaseInfo>()
 
             val currentInventory = productService.findBy(purchase.id)
-            logger.info(
-                "current inventory {}, quantity={}, product_id={}",
-                currentInventory.name,
-                currentInventory.quantity,
-                currentInventory.id
-            )
+            if (currentInventory != null) {
+                logger.info(
+                    "current inventory {}, quantity={}, product_id={}",
+                    currentInventory.name,
+                    currentInventory.quantity,
+                    currentInventory.id
+                )
+            }
 
             logger.info(
                 "received purchase for {}, quantity={}, product_id={}",
@@ -57,7 +59,7 @@ fun Application.module(jdbcUrl: String, username: String, password: String) {
                 purchase.id
             )
 
-            productService.update(purchase) // TODO - DIRTY READS - Replace with decrementBy. Why is using update problematic?
+            productService.decrementBy(purchase) // DIRTY READS - Replace with decrementBy. Why is using update problematic?
 
             call.respond(HttpStatusCode.Created)
         }
@@ -73,11 +75,17 @@ fun Application.module(jdbcUrl: String, username: String, password: String) {
         autoAck = true,
     ).start()
 
-    // TODO - MESSAGING -
-    //  set up the rabbit configuration for your safer queue and
+    //  set up the rabbit configuration for your safer queue
+    val rabbitConfig = BasicRabbitConfiguration(exchange = "safer-products-exchange", queue = "safer-products", routingKey = "auto")
+    rabbitConfig.setUp()
     //  start the rabbit listener with the safer product update handler **with manual acknowledgement**
-    //  this looks similar to the above invocation
-
+    val saferListener = BasicRabbitListener(
+        queue = "safer-products",
+        delivery = ProductUpdateHandler(productService),
+        cancel = ProductUpdateCancelHandler(),
+        autoAck = false, // Manual acknowledgement
+    )
+    saferListener.start()
 }
 
 fun main() {

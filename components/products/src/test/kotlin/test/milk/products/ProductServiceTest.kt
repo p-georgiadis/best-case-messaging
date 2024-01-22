@@ -32,8 +32,8 @@ class ProductServiceTest {
     fun findBy() {
         val service = ProductService(ProductDataGateway(dataSource))
         val product = service.findBy(101000)
-        assertEquals("milk", product.name)
-        assertEquals(42, product.quantity)
+        assertEquals("milk", product?.name)
+        assertEquals(42, product?.quantity)
     }
 
     @Test
@@ -42,12 +42,17 @@ class ProductServiceTest {
         service.update(PurchaseInfo(101000, "milk", 2))
 
         val product = service.findBy(101000)
-        assertEquals("milk", product.name)
-        assertEquals(40, product.quantity)
+        assertEquals("milk", product?.name)
+        assertEquals(40, product?.quantity)
     }
 
     @Test
     fun decrementBy() {
-        // TODO - DIRTY READS - Write the test for decrementBy.
+        val service = ProductService(ProductDataGateway(dataSource))
+        service.decrementBy(PurchaseInfo(101000, "milk", 2))
+
+        val product = service.findBy(101000)
+        assertEquals("milk", product?.name)
+        assertEquals(40, product?.quantity) // Assuming the initial quantity is 42, and 2 is decremented
     }
 }
